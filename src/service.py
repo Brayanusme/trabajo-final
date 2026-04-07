@@ -1,9 +1,10 @@
 from validate import validar_registro
+import file
 
-# Estructuras de datos en memoria
-registros = []        # lista de diccionarios
-ids_usados = set()    # set para evitar IDs duplicados
-emails_usados = set() # set para evitar emails duplicados
+# Estructuras de datos en memoria (se cargan inicializando con el archivo)
+registros = file.load_data()
+ids_usados = {r['id'] for r in registros}
+emails_usados = {r['email'] for r in registros}
 
 def crear_registro(id, nombre, email, edad):
     registro = {
@@ -35,11 +36,14 @@ def crear_registro(id, nombre, email, edad):
     registros.append(registro)
     ids_usados.add(id)
     emails_usados.add(email)
-    print(f"✔ Creado: {nombre}")
+    
+    # Persistir realmente los datos guardándolos en nuestro JSON
+    file.save_data(registros)
+    print(f"✔ Creado y guardado en archivo: {nombre}")
 
 def listar_registros():
     if len(registros) == 0:
-        print("No hay registros.")
+        print("No hay registros almacenados.")
         return
     print(f"\nTotal de registros: {len(registros)}")
     print("-" * 40)

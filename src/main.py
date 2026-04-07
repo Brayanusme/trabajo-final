@@ -1,4 +1,8 @@
 import service
+
+# --- Listar registros que vienen la primera vez desde archivo ---
+print("=== Registros Iniciales en Archivo JSON ===")
+service.listar_registros()
  
 # --- Crear registros válidos ---
 print("=== Creando registros ===")
