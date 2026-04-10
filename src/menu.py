@@ -125,6 +125,44 @@ def menu_eliminar():
     else:
         print(Fore.YELLOW + "Operación cancelada.")
 
+def menu_reporte():
+    print(Fore.CYAN + "\n--- GENERAR REPORTE Y EXPORTAR ---")
+    
+    try:
+        import integration
+    except ImportError:
+        print(Fore.RED + "Error: Este módulo requiere 'pandas'. Ejecute 'pip install pandas'.")
+        return
+        
+    print("Opciones de filtrado (deje en blanco si no desea aplicarlo):")
+    estado = input("Filtrar por estado (ej. activo, inactivo): ").strip().lower()
+    
+    print("\nOpciones de ordenamiento:")
+    print("1. Por Nombre")
+    print("2. Por Edad")
+    print("3. Por ID (Default)")
+    opc_orden = input("Seleccione ordenamiento (Enter para no aplicar específico): ").strip()
+    
+    # Preparamos nuestro *args para enviarle el orden
+    args_orden = []
+    if opc_orden == "1":
+        args_orden.append("nombre")
+    elif opc_orden == "2":
+        args_orden.append("edad")
+    elif opc_orden == "3":
+        args_orden.append("id")
+        
+    # Preparamos nuestro **kwargs para enviarle el filtro
+    kwargs_filtro = {}
+    if estado in ['activo', 'inactivo']:
+        kwargs_filtro['estado'] = estado
+        
+    try:
+        # Llamada utilizando *args y **kwargs
+        integration.generar_reporte(*args_orden, **kwargs_filtro)
+    except Exception as e:
+        print(Fore.RED + f"[ERROR] al generar o exportar el reporte: {e}")
+
 def iniciar_app():
     while True:
         limpiar_pantalla()
@@ -134,10 +172,11 @@ def iniciar_app():
         print(Fore.YELLOW + "3." + Fore.WHITE + " Buscar un registro")
         print(Fore.YELLOW + "4." + Fore.WHITE + " Editar un registro")
         print(Fore.YELLOW + "5." + Fore.WHITE + " Eliminar un registro")
-        print(Fore.RED + "6." + Fore.WHITE + " Salir del sistema")
+        print(Fore.YELLOW + "6." + Fore.WHITE + " Generar reporte (Exportar a CSV) con Pandas")
+        print(Fore.RED + "7." + Fore.WHITE + " Salir del sistema")
         print(Fore.CYAN + "=" * 38)
         
-        opcion = input(Fore.GREEN + "\nSeleccione una opción (1-6): " + Style.RESET_ALL)
+        opcion = input(Fore.GREEN + "\nSeleccione una opción (1-7): " + Style.RESET_ALL)
         
         if opcion == '1':
             menu_crear()
@@ -150,6 +189,8 @@ def iniciar_app():
         elif opcion == '5':
             menu_eliminar()
         elif opcion == '6':
+            menu_reporte()
+        elif opcion == '7':
             print(Fore.MAGENTA + "\nSaliendo del sistema. ¡Hasta pronto!")
             break
         else:
