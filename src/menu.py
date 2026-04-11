@@ -1,6 +1,7 @@
 import os
 from colorama import init, Fore, Back, Style
 import service
+from validate import ValidationError, RecordNotFoundError, DuplicateRecordError
 
 # Inicializar colorama para que los colores se reseteen automáticamente
 init(autoreset=True)
@@ -14,6 +15,8 @@ def leer_entero(mensaje, min_val=None, max_val=None):
     while True:
         try:
             valor = input(mensaje)
+            if not valor:
+                return 0
             numero = int(valor)
             if min_val is not None and numero < min_val:
                 print(Fore.RED + f"Error: El número debe ser mayor o igual a {min_val}.")
@@ -34,17 +37,20 @@ def menu_crear():
     id_usuario = input("Ingrese ID (ej. USR001): ").strip()
     nombre = input("Ingrese Nombre: ").strip()
     email = input("Ingrese Email: ").strip()
-    edad = leer_entero("Ingrese Edad: ", min_val=0, max_val=150)
     
+    edad_input = input("Ingrese Edad: ").strip()
+    edad = int(edad_input) if edad_input.isdigit() else edad_input
+
     estado_input = input("Ingrese Estado [activo/inactivo] (Enter para activo): ").strip().lower()
-    estado = estado_input if estado_input in ['activo', 'inactivo'] else "activo"
+    estado = estado_input if estado_input else "activo"
 
     try:
-        # Aquí se conecta con el módulo service (CRUD) para persistir
         service.new_register(id_usuario, nombre, email, edad, estado)
-        print(Fore.GREEN + Style.BRIGHT + "[ÉXITO] Registro creado correctamente.")
-    except Exception as e:
+        print(Fore.GREEN + Style.BRIGHT + f"[ÉXITO] Registro creado correctamente: {nombre}")
+    except (ValidationError, DuplicateRecordError) as e:
         print(Fore.RED + f"[ERROR] {e}")
+    except Exception as e:
+        print(Fore.RED + f"[ERROR NO ESPERADO] {e}")
 
 def menu_listar():
     print(Fore.CYAN + "\n--- LISTAR REGISTROS ---")
@@ -54,18 +60,26 @@ def menu_listar():
     print("3. Por Edad")
     
     opc = input("Seleccione ordenamiento (Enter para default por ID): ").strip()
-    
     sort_dict = {"1": "id", "2": "nombre", "3": "edad"}
     sort_by = sort_dict.get(opc, "id")
     
     print(Fore.CYAN + "\n--- RESULTADOS ---")
-    service.list_records(sort_by=sort_by)
+    registros = service.list_records(sort_by=sort_by)
+    
+    if not registros:
+        print(Fore.YELLOW + "No hay registros almacenados.")
+        return
+
+    print(f"\nTotal de registros ({len(registros)}) - [Ordenamiento por: {sort_by}]:")
+    print("-" * 65)
+    for r in registros:
+        print(f"[{r['estado'].upper():^8}] | ID: {r['id']:<6} | Nombre: {r['nombre']:<15} | Edad: {r['edad']:>2} | Email: {r['email']}")
+    print("-" * 65)
 
 def menu_buscar():
     print(Fore.CYAN + "\n--- BUSCAR REGISTRO ---")
     termino = input("Ingrese término de búsqueda (nombre, email o ID): ").strip()
     
-    # Conexión con el CRUD
     resultados = service.search_record(termino)
     
     if resultados:
@@ -89,23 +103,20 @@ def menu_editar():
     if nombre: datos_nuevos['nombre'] = nombre
     if email: datos_nuevos['email'] = email
     if edad_str:
-        try:
-            datos_nuevos['edad'] = int(edad_str)
-        except ValueError:
-            print(Fore.RED + "Error: La edad proporcionada no es válida. No se modificará la edad.")
-    if estado in ['activo', 'inactivo']: 
-        datos_nuevos['estado'] = estado
+        datos_nuevos['edad'] = int(edad_str) if edad_str.isdigit() else edad_str
+    if estado: datos_nuevos['estado'] = estado
 
     if not datos_nuevos:
         print(Fore.YELLOW + "No se ingresaron datos nuevos. Operación cancelada.")
         return
 
     try:
-        # Conexión con el CRUD
         service.update_record(id_usuario, datos_nuevos)
-        print(Fore.GREEN + Style.BRIGHT + "[ÉXITO] Registro actualizado correctamente.")
-    except Exception as e:
+        print(Fore.GREEN + Style.BRIGHT + f"[ÉXITO] ID {id_usuario} se actualizó permanentemente.")
+    except (ValidationError, RecordNotFoundError, DuplicateRecordError) as e:
         print(Fore.RED + f"[ERROR] {e}")
+    except Exception as e:
+        print(Fore.RED + f"[ERROR NO ESPERADO] {e}")
 
 def menu_eliminar():
     print(Fore.CYAN + "\n--- ELIMINAR REGISTRO ---")
@@ -114,14 +125,13 @@ def menu_eliminar():
     confirmacion = input(Fore.YELLOW + f"¿Está seguro de eliminar el registro '{id_usuario}'? (s/n): ").strip().lower()
     if confirmacion == 's':
         try:
-            # Conexión con el CRUD
             exito = service.delete_record(id_usuario)
             if exito:
-                print(Fore.GREEN + Style.BRIGHT + "[ÉXITO] Registro eliminado de manera exitosa.")
-            else:
-                print(Fore.RED + "[ERROR] No se pudo encontrar el registro para eliminar.")
-        except Exception as e:
+                print(Fore.GREEN + Style.BRIGHT + f"[ÉXITO] Registro [{id_usuario}] eliminado de manera exitosa de los datos.")
+        except RecordNotFoundError as e:
             print(Fore.RED + f"[ERROR] {e}")
+        except Exception as e:
+            print(Fore.RED + f"[ERROR NO ESPERADO] {e}")
     else:
         print(Fore.YELLOW + "Operación cancelada.")
 
@@ -143,23 +153,23 @@ def menu_reporte():
     print("3. Por ID (Default)")
     opc_orden = input("Seleccione ordenamiento (Enter para no aplicar específico): ").strip()
     
-    # Preparamos nuestro *args para enviarle el orden
     args_orden = []
-    if opc_orden == "1":
-        args_orden.append("nombre")
-    elif opc_orden == "2":
-        args_orden.append("edad")
-    elif opc_orden == "3":
-        args_orden.append("id")
+    if opc_orden == "1": args_orden.append("nombre")
+    elif opc_orden == "2": args_orden.append("edad")
+    elif opc_orden == "3": args_orden.append("id")
         
-    # Preparamos nuestro **kwargs para enviarle el filtro
     kwargs_filtro = {}
     if estado in ['activo', 'inactivo']:
         kwargs_filtro['estado'] = estado
         
     try:
-        # Llamada utilizando *args y **kwargs
-        integration.generar_reporte(*args_orden, **kwargs_filtro)
+        exito, reporte, stats, ruta = integration.generar_reporte(*args_orden, **kwargs_filtro)
+        if exito:
+            print(reporte)
+            if stats: print(stats)
+            print(Fore.GREEN + f"\n[ÉXITO] Los registros se han exportado exitosamente a CSV en:\n{ruta}")
+        else:
+            print(Fore.YELLOW + reporte)
     except Exception as e:
         print(Fore.RED + f"[ERROR] al generar o exportar el reporte: {e}")
 
@@ -178,18 +188,12 @@ def iniciar_app():
         
         opcion = input(Fore.GREEN + "\nSeleccione una opción (1-7): " + Style.RESET_ALL)
         
-        if opcion == '1':
-            menu_crear()
-        elif opcion == '2':
-            menu_listar()
-        elif opcion == '3':
-            menu_buscar()
-        elif opcion == '4':
-            menu_editar()
-        elif opcion == '5':
-            menu_eliminar()
-        elif opcion == '6':
-            menu_reporte()
+        if opcion == '1': menu_crear()
+        elif opcion == '2': menu_listar()
+        elif opcion == '3': menu_buscar()
+        elif opcion == '4': menu_editar()
+        elif opcion == '5': menu_eliminar()
+        elif opcion == '6': menu_reporte()
         elif opcion == '7':
             print(Fore.MAGENTA + "\nSaliendo del sistema. ¡Hasta pronto!")
             break

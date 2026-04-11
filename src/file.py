@@ -1,12 +1,13 @@
 import json
 import os
+from typing import List, Dict, Any
 
 # Obtener la ruta absoluta de la carpeta del proyecto (padre de src/)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DATA_PATH = os.path.join(DATA_DIR, "registros.json")
 
-def load_data():
+def load_data() -> List[Dict[str, Any]]:
     """Carga los registros desde el archivo JSON si existe. Maneja asegurando su existencia."""
     try:
         if not os.path.exists(DATA_PATH):
@@ -23,7 +24,7 @@ def load_data():
         print(f"Error al leer el archivo de registros: {e}")
         return []
 
-def save_data(data):
+def save_data(data: List[Dict[str, Any]]) -> None:
     """Guarda la lista de registros en el archivo JSON con manejo de errores."""
     try:
         # Asegurarse de que la carpeta data exista
